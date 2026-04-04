@@ -6,9 +6,9 @@ import torch.nn.functional as F
 EMBED_DIM = 512
 NUM_HEADS = 8
 EXPAND_SIZE = 2048
-ATTENTION_DROPOUT = 0.1
-OUTPUT_DROPOUT = 0.1
-FEEDFORWARD_DROPOUT = 0.1
+ATTENTION_DROPOUT = 0.2
+OUTPUT_DROPOUT = 0.2
+FEEDFORWARD_DROPOUT = 0.2
 SEQ_LEN = 4  # For modular arithmetic we just have a op b =
 NUM_LAYERS = 1
 
@@ -183,4 +183,4 @@ class GrokModularModel(nn.Module):
 
     def forward(self, x: torch.Tensor):
         x = self.transformer(x)
-        return self.output_layer(x)
+        return self.output_layer(x)[:, -1]

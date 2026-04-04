@@ -15,6 +15,7 @@ import torch.nn.functional as F
 from grokker_og import TransformerTorch
 from dataloader import grokking_data_torch
 from dataloader import build_grokking_dataloaders
+from transformer_model import GrokModularModel
 
 
 
@@ -42,7 +43,7 @@ parser.add_argument('--warmup', type=int, default=10, help='warmup steps')
 parser.add_argument('-b', '--batch_size', type=int,
                     default=512, help='batch size')
 parser.add_argument('-e', '--epochs', type=int,
-                    default=150, help='number of epochs')
+                    default=500, help='number of epochs')
 # misc args
 parser.add_argument('--seed', type=int, default=42, help='random seed')
 parser.add_argument('--cpu', action='store_true', help='use cpu only')
@@ -76,14 +77,7 @@ class TorchTrainer:
         self.val_acc_trace = []
 
 
-        self.train_loader, self.test_loader = build_grokking_dataloaders(
-            p=config.MOD,
-            op=config.op,
-            train_fraction=config.train_fraction,
-            batch_size=config.batch_size,
-            seed=config.seed,
-            num_workers=config.num_workers,
-        )
+
 
 
     def _make_batches(self, X_torch, T_torch):
@@ -92,24 +86,18 @@ class TorchTrainer:
             yield X_torch[i:i+bs], T_torch[i:i+bs]
 
 
-    def train(self, train_data, val_data, epochs=5, shuffle=True):
+    def train(self, train_data, test_data, epochs=5, shuffle=True):
         self.model.train()
-        Xtrain_t, Ttrain_t = train_data
-        Xtest_t, Ttest_t = val_data
 
         # Basic epoch loop
         epoch_bar = tqdm(range(epochs), desc='Training', unit='epoch')
         for _ in epoch_bar:
             self.model.train()
-            if shuffle:
-                permutation = torch.randperm(Xtrain_t.size(0))
-                Xtrain_t = Xtrain_t[permutation]
-                Ttrain_t = Ttrain_t[permutation]
 
             total_loss = 0.0
             total_correct = 0
             # for Xb, Tb in self._make_batches(Xtrain_t, Ttrain_t):
-            for Xb, Tb in self._make_batches(Xtrain_t, Ttrain_t):
+            for Xb, Tb in train_data:  # train_data is already a DataLoader yielding batches
                 # Move to device if needed
                 Xb = Xb.to(self.device)
                 Tb = Tb.to(self.device)
@@ -125,9 +113,9 @@ class TorchTrainer:
                     preds = torch.argmax(outputs, dim=1)
                     total_correct += (preds == Tb).sum().item()
 
-            avg_train_loss = total_loss / Xtrain_t.shape[0]
+            avg_train_loss = total_loss / len(train_data.dataset)  # train_data is a DataLoader, so we access .dataset for length
             if self.classification:
-                avg_train_acc = total_correct / Xtrain_t.shape[0]
+                avg_train_acc = total_correct / len(train_data.dataset)
             else:
                 avg_train_acc = 0.0
 
@@ -135,7 +123,7 @@ class TorchTrainer:
             self.train_acc_trace.append(avg_train_acc)
 
             # Evaluate
-            avg_val_loss, avg_val_acc = self.evaluate((Xtest_t, Ttest_t))
+            avg_val_loss, avg_val_acc = self.evaluate(test_data)
             self.val_error_trace.append(avg_val_loss)
             self.val_acc_trace.append(avg_val_acc)
 
@@ -149,10 +137,9 @@ class TorchTrainer:
 
     def evaluate(self, test_data):
         self.model.eval()
-        Xtest_t, Ttest_t = test_data
         total_loss, total_correct = 0.0, 0
         with torch.no_grad():
-            for Xb, Tb in self._make_batches(Xtest_t, Ttest_t):
+            for Xb, Tb in test_data:  # test_data is already a DataLoader yielding batches
                 Xb = Xb.to(self.device)
                 Tb = Tb.to(self.device)
                 outputs = self.model(Xb)
@@ -161,9 +148,9 @@ class TorchTrainer:
                 if self.classification:
                     preds = torch.argmax(outputs, dim=1)
                     total_correct += (preds == Tb).sum().item()
-        avg_loss = total_loss / Xtest_t.shape[0]
+        avg_loss = total_loss / len(test_data.dataset)
         if self.classification:
-            avg_acc = total_correct / Xtest_t.shape[0]
+            avg_acc = total_correct / len(test_data.dataset)
         else:
             avg_acc = 0.0
         return avg_loss, avg_acc
@@ -173,8 +160,18 @@ def main(args):
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
   
-    Xtrain_torch, Ttrain_torch, Xtest_torch, Ttest_torch = grokking_data_torch(
-        args.p, op=args.op, train_fraction=args.train_fraction, device='cpu')
+    # Xtrain_torch, Ttrain_torch, Xtest_torch, Ttest_torch = grokking_data_torch(
+    #     args.p, op=args.op, train_fraction=args.train_fraction, device='cpu')
+
+    train_loader, test_loader = build_grokking_dataloaders(
+        p=args.p,
+        op=args.op,
+        train_fraction=args.train_fraction,
+        batch_size=args.batch_size,
+        seed=args.seed,
+        # num_workers=args.num_workers,
+    )
+
         # Already torch tensors
 
     # Build model(s)
@@ -193,6 +190,16 @@ def main(args):
         device = 'cuda'
     torch_model = TransformerTorch(**kwargs).to(device)
 
+
+    # torch_model = GrokModularModel(
+    #     vocab_size=kwargs['n_tokens'],
+    #     num_layers=kwargs['depth'],
+    #     embed_dim=kwargs['dim'],
+    #     num_heads=kwargs['heads'],
+    #     context_size=kwargs['seq_len'],
+    # ).to(device)
+
+
     optimizer_torch = optim_torch.AdamW(
         torch_model.parameters(),
         lr=args.lr,
@@ -209,10 +216,8 @@ def main(args):
     )
 
     trainer.train(
-        (Xtrain_torch, Ttrain_torch),
-        (Xtest_torch, Ttest_torch),
+        train_loader, test_loader,
         epochs=args.epochs,
-        shuffle=True
     )
 
     # Store PyTorch results for later plotting

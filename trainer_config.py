@@ -8,22 +8,26 @@ LossType = Literal["cross_entropy", "mse", "mse_cross_entropy"]
 
 @dataclass
 class TrainerConfig:
-    MOD: int = 97
-    op: str = "/"
+    p: int = 113
+    op: str = "+"
     train_fraction: float = 0.5
     batch_size: int = 1024
-    seed: int = 0
-    num_workers: int = 0
+    seed: int = 42
+    num_workers: int = 4
+    dropout: float = 0.1
 
     num_layers: int = 2
-    embed_dim: int = 512
-    num_heads: int = 8
+    embed_dim: int = 256
+    num_heads: int = 2
     context_size: int = 4
 
     lr: float = 1e-3
-    weight_decay: float = 0.0
+    weight_decay: float = 0.1
     momentum: float = 0.9
-    epochs: int = 20
+    epochs: int = 1200
+    beta1: float = 0.9
+    beta2: float = 0.98
+    log_dir: str = "expts/logs"
 
     loss_type: LossType = "cross_entropy"
     ce_weight: float = 1.0
@@ -34,4 +38,4 @@ class TrainerConfig:
     @property
     def vocab_size(self) -> int:
         # Values are in [0, p-1] plus operator and '=' tokens.
-        return self.MOD + 2
+        return self.p + 2

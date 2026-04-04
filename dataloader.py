@@ -42,7 +42,7 @@ def ground_truth_data_generator(p: int, op: str):
 
 
 def build_grokking_dataloaders(
-    p: int = TrainerConfig.MOD,
+    p: int = TrainerConfig.p,
     op: str = TrainerConfig.op,
     train_fraction: float = TrainerConfig.train_fraction,
     batch_size: int = TrainerConfig.batch_size,
@@ -81,7 +81,7 @@ def build_grokking_dataloaders(
 
 
 def grokking_data_torch(
-    p: int = TrainerConfig.MOD,
+    p: int = TrainerConfig.p,
     op: str = TrainerConfig.op,
     train_fraction: float = TrainerConfig.train_fraction,
     batch_size: int = TrainerConfig.batch_size,

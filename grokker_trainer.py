@@ -1,9 +1,11 @@
 from typing import Dict, List, Literal, Tuple
-
+import os
+from datetime import datetime
 
 from trainer_config import TrainerConfig
 import torch
 import torch.nn.functional as F
+from torch.utils.tensorboard import SummaryWriter
 
 from dataloader import build_grokking_dataloaders
 from grokker_og import TransformerTorch
@@ -14,16 +16,18 @@ class GrokkerTrainer:
     def __init__(self, config: TrainerConfig):
         self.config = config
         self.device = torch.device(config.device)
+        log_dir = os.path.join(config.log_dir, datetime.now().strftime("%Y%m%d-%H%M%S"))
+        self.train_writer = SummaryWriter(log_dir=os.path.join(log_dir,  "train"))
+        self.val_writer = SummaryWriter(log_dir=os.path.join(log_dir, "val"))
 
         self.train_loader, self.test_loader = build_grokking_dataloaders(
-            p=config.MOD,
+            p=config.p,
             op=config.op,
             train_fraction=config.train_fraction,
             batch_size=config.batch_size,
             seed=config.seed,
-            num_workers=config.num_workers,
         )
-
+        
         self.model = GrokModularModel(
             vocab_size=config.vocab_size,
             num_layers=config.num_layers,
@@ -32,27 +36,30 @@ class GrokkerTrainer:
             context_size=config.context_size,
         ).to(self.device)
 
+
         # self.model = TransformerTorch(
-        #     depth = 2,
-        #     dim = 128,
-        #     heads = 8,
-        #     n_tokens = config.vocab_size,
-        #     seq_len = config.context_size,
-        #     dropout = 0.2,
+        #     depth=config.num_layers,
+        #     dim=config.embed_dim,
+        #     heads=config.num_heads,
+        #     n_tokens=config.vocab_size,
+        #     seq_len=config.context_size,
+        #     dropout=config.dropout,
         # ).to(self.device)
+
+
 
         # self.optimizer = torch.optim.SGD(
         #     self.model.parameters(),
         #     lr=config.lr,
         #     weight_decay=config.weight_decay,
-        #     momentum=config.momentum,
+        #     # momentum=config.momentum,
         # )
 
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(),
             lr=config.lr,
-            # betas=(config.beta1, config.beta2),
-            weight_decay=config.weight_decay
+            betas=(config.beta1, config.beta2),
+            weight_decay=config.weight_decay,
         )
 
         self.loss_fn = F.cross_entropy
@@ -73,8 +80,8 @@ class GrokkerTrainer:
             x = x.to(self.device)
             y = y.to(self.device)
 
-            logits = self.model(x)
-            logits_last = logits[:, -1, :]
+            logits_last = self.model(x)
+            # logits_last = logits[:, -1, :]
             total_loss = self.loss_fn(logits_last, y)
 
             preds = torch.argmax(logits_last, dim=-1)
@@ -115,8 +122,7 @@ class GrokkerTrainer:
             x = x.to(self.device)
             y = y.to(self.device)
 
-            logits = self.model(x)
-            logits_last = logits[:, -1, :]
+            logits_last = self.model(x)
             total_loss = self.loss_fn(logits_last, y)
 
             preds = torch.argmax(logits_last, dim=-1)
@@ -141,26 +147,40 @@ class GrokkerTrainer:
 
     def fit(self) -> List[Dict[str, float]]:
         history: List[Dict[str, float]] = []
-        for epoch in range(1, self.config.epochs + 1):
-            train_metrics = self.train_epoch()
-            val_metrics = self.evaluate()
+        try:
+            for epoch in range(1, self.config.epochs + 1):
+                train_metrics = self.train_epoch()
+                val_metrics = self.evaluate()
 
-            row = {
-                "epoch": float(epoch),
-                "train_loss": train_metrics["loss"],
-                "train_acc": train_metrics["accuracy"],
-                "val_loss": val_metrics["loss"],
-                "val_acc": val_metrics["accuracy"],
-                "train_ce": train_metrics["ce_loss"],
-                "val_ce": val_metrics["ce_loss"],
-            }
-            history.append(row)
+                row = {
+                    "epoch": float(epoch),
+                    "train_loss": train_metrics["loss"],
+                    "train_acc": train_metrics["accuracy"],
+                    "val_loss": val_metrics["loss"],
+                    "val_acc": val_metrics["accuracy"],
+                    "train_ce": train_metrics["ce_loss"],
+                    "val_ce": val_metrics["ce_loss"],
+                }
+                history.append(row)
 
-            print(
-                f"Epoch {epoch:03d}/{self.config.epochs} | "
-                f"train_loss={row['train_loss']:.4f} train_acc={row['train_acc']:.4f} | "
-                f"val_loss={row['val_loss']:.4f} val_acc={row['val_acc']:.4f}"
-            )
+                self.train_writer.add_scalar("Loss", row["train_loss"], epoch)
+                self.train_writer.add_scalar("Accuracy", row["train_acc"], epoch)
+                self.train_writer.add_scalar("CrossEntropy", row["train_ce"], epoch)
+
+                self.val_writer.add_scalar("Loss", row["val_loss"], epoch)
+                self.val_writer.add_scalar("Accuracy", row["val_acc"], epoch)
+                self.val_writer.add_scalar("CrossEntropy", row["val_ce"], epoch)
+
+                print(
+                    f"Epoch {epoch:03d}/{self.config.epochs} | "
+                    f"train_loss={row['train_loss']:.4f} train_acc={row['train_acc']:.4f} | "
+                    f"val_loss={row['val_loss']:.4f} val_acc={row['val_acc']:.4f}"
+                )
+        finally:
+            self.train_writer.flush()
+            self.val_writer.flush()
+            self.train_writer.close()
+            self.val_writer.close()
 
         return history
 
@@ -173,5 +193,5 @@ def train_grokker(config: TrainerConfig | None = None):
 
 
 if __name__ == "__main__":
-    default_config = TrainerConfig(loss_type="cross_entropy", epochs=50000)
+    default_config = TrainerConfig()
     train_grokker(default_config)
