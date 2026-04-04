@@ -8,14 +8,14 @@ LossType = Literal["cross_entropy", "mse", "mse_cross_entropy"]
 
 @dataclass
 class TrainerConfig:
-    MOD: int = 113
+    MOD: int = 97
     op: str = "/"
     train_fraction: float = 0.5
     batch_size: int = 1024
     seed: int = 0
     num_workers: int = 0
 
-    num_layers: int = 1
+    num_layers: int = 2
     embed_dim: int = 512
     num_heads: int = 8
     context_size: int = 4

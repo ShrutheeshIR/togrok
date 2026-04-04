@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 
 from dataloader import build_grokking_dataloaders
+from grokker_og import TransformerTorch
 from transformer_model import GrokModularModel
 
 
@@ -31,11 +32,27 @@ class GrokkerTrainer:
             context_size=config.context_size,
         ).to(self.device)
 
-        self.optimizer = torch.optim.SGD(
+        # self.model = TransformerTorch(
+        #     depth = 2,
+        #     dim = 128,
+        #     heads = 8,
+        #     n_tokens = config.vocab_size,
+        #     seq_len = config.context_size,
+        #     dropout = 0.2,
+        # ).to(self.device)
+
+        # self.optimizer = torch.optim.SGD(
+        #     self.model.parameters(),
+        #     lr=config.lr,
+        #     weight_decay=config.weight_decay,
+        #     momentum=config.momentum,
+        # )
+
+        self.optimizer = torch.optim.AdamW(
             self.model.parameters(),
             lr=config.lr,
-            weight_decay=config.weight_decay,
-            momentum=config.momentum,
+            # betas=(config.beta1, config.beta2),
+            weight_decay=config.weight_decay
         )
 
         self.loss_fn = F.cross_entropy

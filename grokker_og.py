@@ -7,7 +7,7 @@
 import torch
 import torch.nn as nn_torch
 import torch.nn.functional as F
-from torchtune.modules.position_embeddings import RotaryPositionalEmbeddings
+# from torchtune.modules.position_embeddings import RotaryPositionalEmbeddings
 
 class AttentionTorch(nn_torch.Module):
     def __init__(self, dim, heads=8, dim_head=64, dropout=0.):
@@ -34,7 +34,7 @@ class AttentionTorch(nn_torch.Module):
             self.to_out = nn_torch.Identity()
 
         # We replicate the RoPE. We'll implement a small helper:
-        self.rope = RoPETorch(dim_head, base=1e6)
+        # self.rope = RoPETorch(dim_head, base=1e6)
 
     def forward(self, x, mask=None):
         # x: (b, n, d)
@@ -52,8 +52,8 @@ class AttentionTorch(nn_torch.Module):
         v = v.reshape(b, n, self.heads, -1).transpose(1, 2)
 
         # Apply rope
-        q = self.rope(q)
-        k = self.rope(k)
+        # q = self.rope(q)
+        # k = self.rope(k)
 
         # Scaled dot product attention
         scores = torch.einsum('bhqd,bhkd->bhqk', q, k) * self.scale
@@ -155,17 +155,17 @@ class RMSNormTorch(nn_torch.Module):
         return normed * self.weight
 
 
-class RoPETorch(nn_torch.Module):
-    """
-    A wrapper around torchtune's RotaryPositionalEmbeddings.
-    Expects x shape: (b, seq, heads, dim_head).
-    """
-    def __init__(self, dim_head, base=1e6):
-        super().__init__()
-        self.rope = RotaryPositionalEmbeddings(dim_head, base=base)
+# class RoPETorch(nn_torch.Module):
+#     """
+#     A wrapper around torchtune's RotaryPositionalEmbeddings.
+#     Expects x shape: (b, seq, heads, dim_head).
+#     """
+#     def __init__(self, dim_head, base=1e6):
+#         super().__init__()
+#         self.rope = RotaryPositionalEmbeddings(dim_head, base=base)
         
-    def forward(self, x, input_pos=None):
-        # x shape: (b, seq, heads, dim_head)
-        # This is already in the format torchtune expects: [b, s, n_h, h_d]
-        return self.rope(x, input_pos=input_pos)
+#     def forward(self, x, input_pos=None):
+#         # x shape: (b, seq, heads, dim_head)
+#         # This is already in the format torchtune expects: [b, s, n_h, h_d]
+#         return self.rope(x, input_pos=input_pos)
 
