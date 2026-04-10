@@ -82,6 +82,12 @@ def plot_metrics(df: pd.DataFrame, output_path: Path | None = None, suffix: str 
 		output_path.parent.mkdir(parents=True, exist_ok=True)
 		for metric_name, fig in figures.items():
 			fig.savefig(output_path / f"{metric_name}_{suffix}.svg", bbox_inches="tight")
+	
+	f = open("trainer_config.py", "r")
+	config_code = f.readlines()
+	f.close()
+	with open(output_path / f"trial", "w") as f:
+		f.writelines(config_code[10:37])
 
 	return figures
 
@@ -109,7 +115,7 @@ def main():
 
 	df = load_scalar_records(args.log_dir)
 	plot_metrics(df, args.output_dir, args.suffix)
-	# plt.show()
+	plt.show()
 
 
 if __name__ == "__main__":

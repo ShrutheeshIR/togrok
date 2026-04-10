@@ -10,6 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 from dataloader import build_grokking_dataloaders
 from grokker_og import TransformerTorch
 from transformer_model import GrokModularModel
+from mlp_model import GrokMLP
 
 
 class GrokkerTrainer:
@@ -27,14 +28,23 @@ class GrokkerTrainer:
             batch_size=config.batch_size,
             seed=config.seed,
         )
-        
-        self.model = GrokModularModel(
-            vocab_size=config.vocab_size,
-            num_layers=config.num_layers,
-            embed_dim=config.embed_dim,
-            num_heads=config.num_heads,
-            context_size=config.context_size,
-        ).to(self.device)
+        self.model = None
+
+        if config.model == "transformer":
+            self.model = GrokModularModel(
+                vocab_size=config.vocab_size,
+                num_layers=config.num_layers,
+                embed_dim=config.embed_dim,
+                num_heads=config.num_heads,
+                context_size=config.context_size,
+            ).to(self.device)
+
+        # update later if we want variable layers
+        elif config.model == "mlp":
+            self.model = GrokMLP(
+                vocab_size=config.vocab_size,
+                embed_dim=config.embed_dim,
+            ).to(self.device)
 
 
         # self.model = TransformerTorch(
@@ -52,7 +62,7 @@ class GrokkerTrainer:
         #     self.model.parameters(),
         #     lr=config.lr,
         #     weight_decay=config.weight_decay,
-        #     # momentum=config.momentum,
+        #     momentum=config.momentum,
         # )
 
         self.optimizer = torch.optim.AdamW(
@@ -80,7 +90,10 @@ class GrokkerTrainer:
             x = x.to(self.device)
             y = y.to(self.device)
 
+          # Convert input to float for MLP
+            x = x.float()
             logits_last = self.model(x)
+            # print(logits_last.shape)
             # logits_last = logits[:, -1, :]
             total_loss = self.loss_fn(logits_last, y)
 
@@ -122,6 +135,7 @@ class GrokkerTrainer:
             x = x.to(self.device)
             y = y.to(self.device)
 
+            x = x.float()
             logits_last = self.model(x)
             total_loss = self.loss_fn(logits_last, y)
 

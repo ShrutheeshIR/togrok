@@ -8,23 +8,24 @@ LossType = Literal["cross_entropy", "mse", "mse_cross_entropy"]
 
 @dataclass
 class TrainerConfig:
+    model: Literal["transformer", "mlp"] = "mlp"
     p: int = 113
     op: str = "+"
     train_fraction: float = 0.5
-    batch_size: int = 1024
+    batch_size: int = 512
     seed: int = 42
     num_workers: int = 4
-    dropout: float = 0.1
+    dropout: float = 0
 
     num_layers: int = 2
-    embed_dim: int = 256
-    num_heads: int = 2
-    context_size: int = 4
+    embed_dim: int = 128
+    num_heads: int = 4
+    context_size: int = 3
 
     lr: float = 1e-3
-    weight_decay: float = 0.1
+    weight_decay: float = 0.01
     momentum: float = 0.9
-    epochs: int = 1200
+    epochs: int = 1000
     beta1: float = 0.9
     beta2: float = 0.98
     log_dir: str = "expts/logs"

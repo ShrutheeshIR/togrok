@@ -36,7 +36,8 @@ def ground_truth_data_generator(p: int, op: str):
     targets = np.array([operations[op](a, b) for a, b in x_pairs])
 
     embed = {"*": p, "/": p, "+": p, "-": p, "=": p + 1}
-    inputs = np.array([[a, embed[op], b, embed["="]] for (a, b) in x_pairs])
+    # inputs = np.array([[a, embed[op], b, embed["="]] for (a, b) in x_pairs])
+    inputs = np.array([[a, b, embed["="]] for (a, b) in x_pairs])
 
     return inputs, targets
 
