@@ -19,3 +19,4 @@ To grok the meaning of grokking, here is a conversation between Jubal and Dr. Ma
 
 In a similar sense, can we grok modular arithmatic? I do not mean to drink it, but love it, fear it, hate it and be one with it? We attempt that in this project
 
+Run [grokker_trainer.py](grokker_trainer.py)
