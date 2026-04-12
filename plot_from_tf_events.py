@@ -79,7 +79,8 @@ def plot_metrics(df: pd.DataFrame, output_path: Path | None = None, suffix: str 
 		figures[metric.lower()] = fig
 
 	if output_path is not None:
-		output_path.parent.mkdir(parents=True, exist_ok=True)
+		output_path.mkdir(parents=True, exist_ok=True)
+		print(f"Saving figures to {output_path} with suffix '{suffix}'")
 		for metric_name, fig in figures.items():
 			fig.savefig(output_path / f"{metric_name}_{suffix}.svg", bbox_inches="tight")
 	

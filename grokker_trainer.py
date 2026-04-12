@@ -11,8 +11,9 @@ from dataloader import build_grokking_dataloaders
 from grokker_og import TransformerTorch
 from transformer_model import GrokModularModel
 from mlp_model import GrokMLP
+from custom_optimizer import AdamCustom
 
-
+torch.set_default_dtype(torch.float64)
 class GrokkerTrainer:
     def __init__(self, config: TrainerConfig):
         self.config = config
@@ -91,7 +92,7 @@ class GrokkerTrainer:
             y = y.to(self.device)
 
           # Convert input to float for MLP
-            x = x.float()
+            # x = x.float()
             logits_last = self.model(x)
             # print(logits_last.shape)
             # logits_last = logits[:, -1, :]
@@ -135,7 +136,7 @@ class GrokkerTrainer:
             x = x.to(self.device)
             y = y.to(self.device)
 
-            x = x.float()
+            # x = x.float()
             logits_last = self.model(x)
             total_loss = self.loss_fn(logits_last, y)
 
