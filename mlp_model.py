@@ -13,12 +13,13 @@ class GrokMLP(nn.Module):
             nn.Linear(vocab_size, vocab_size),
             nn.ReLU()
         )
-        self.fc_out = nn.Linear(embed_dim, vocab_size)
+        self.fc_out = nn.Linear(vocab_size, vocab_size)
 
     def forward(self, x):
-        a = self.layers(x[:, 0])
-        b = self.fc_out(x[:, 1])
+        a = self.embed_a(x[:, 0])
+        b = self.embed_b(x[:, 1])
         x = a + b
+        # print(x.shape)
         x = self.layers(x)
         x = self.fc_out(x)
         return x

@@ -43,7 +43,6 @@ class GrokkerTrainer:
         elif config.model == "mlp":
             self.model = GrokMLP(
                 vocab_size=config.vocab_size,
-                embed_dim=config.embed_dim,
             ).to(self.device)
 
 
@@ -91,7 +90,7 @@ class GrokkerTrainer:
             y = y.to(self.device)
 
           # Convert input to float for MLP
-            x = x.float()
+            # x = x.float()
             logits_last = self.model(x)
             # print(logits_last.shape)
             # logits_last = logits[:, -1, :]
@@ -135,7 +134,7 @@ class GrokkerTrainer:
             x = x.to(self.device)
             y = y.to(self.device)
 
-            x = x.float()
+            # x = x.float()
             logits_last = self.model(x)
             total_loss = self.loss_fn(logits_last, y)
 
