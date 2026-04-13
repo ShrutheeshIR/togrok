@@ -57,19 +57,19 @@ class GrokkerTrainer:
 
 
 
-        # self.optimizer = torch.optim.SGD(
-        #     self.model.parameters(),
-        #     lr=config.lr,
-        #     weight_decay=config.weight_decay,
-        #     momentum=config.momentum,
-        # )
-
-        self.optimizer = torch.optim.AdamW(
+        self.optimizer = torch.optim.SGD(
             self.model.parameters(),
             lr=config.lr,
-            betas=(config.beta1, config.beta2),
             weight_decay=config.weight_decay,
+            momentum=config.momentum,
         )
+
+        # self.optimizer = torch.optim.AdamW(
+        #     self.model.parameters(),
+        #     lr=config.lr,
+        #     betas=(config.beta1, config.beta2),
+        #     weight_decay=config.weight_decay,
+        # )
 
         self.loss_fn = F.cross_entropy
 

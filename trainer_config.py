@@ -12,7 +12,7 @@ class TrainerConfig:
     p: int = 113
     op: str = "+"
     train_fraction: float = 0.5
-    batch_size: int = 512
+    batch_size: int = 2048
     seed: int = 42
     num_workers: int = 4
     dropout: float = 0
@@ -23,9 +23,9 @@ class TrainerConfig:
     context_size: int = 3
 
     lr: float = 1e-3
-    weight_decay: float = 0.01
+    weight_decay: float = 0.1
     momentum: float = 0.9
-    epochs: int = 1000
+    epochs: int = 50000
     beta1: float = 0.9
     beta2: float = 0.98
     log_dir: str = "expts/logs"
