@@ -10,8 +10,8 @@ from torch.utils.tensorboard import SummaryWriter
 from dataloader import build_grokking_dataloaders
 from grokker_og import TransformerTorch
 from transformer_model import GrokModularModel
-from mlp_model import GrokMLP
-from custom_optimizer import AdamCustom
+from mlp_model import GrokMLP, MLPGrokModel
+from custom_optimizer import AdamCustom, SGDCustom, LBFGSCustom
 
 torch.set_default_dtype(torch.float64)
 class GrokkerTrainer:
@@ -42,11 +42,15 @@ class GrokkerTrainer:
 
         # update later if we want variable layers
         elif config.model == "mlp":
-            self.model = GrokMLP(
+            # self.model = GrokMLP(
+            #     vocab_size=config.vocab_size,
+            #     embed_dim=config.embed_dim,
+            # ).to(self.device)
+            self.model = MLPGrokModel(
                 vocab_size=config.vocab_size,
+                num_layers=config.num_layers,
                 embed_dim=config.embed_dim,
             ).to(self.device)
-
 
         # self.model = TransformerTorch(
         #     depth=config.num_layers,
@@ -66,12 +70,35 @@ class GrokkerTrainer:
         #     momentum=config.momentum,
         # )
 
-        self.optimizer = torch.optim.AdamW(
+        # self.optimizer = AdamCustom(
+        #     self.model.parameters(),
+        #     lr=config.lr,
+        #     beta1=config.beta1,
+        #     beta2=config.beta2,
+        #     eps=1e-8,
+        #     weight_decay=config.weight_decay,
+        # )
+
+        self.optimizer = SGDCustom(
             self.model.parameters(),
             lr=config.lr,
-            betas=(config.beta1, config.beta2),
+            momentum=config.momentum,
             weight_decay=config.weight_decay,
         )
+
+        # self.optimizer = LBFGSCustom(
+        #     self.model.parameters(),
+        #     lr=config.lr * 1.0,
+        #     # momentum=config.momentum * 0.9,
+        #     # weight_decay=0.75,
+        # )
+
+        # self.optimizer = torch.optim.LBFGS(
+        #     self.model.parameters(),
+        #     lr = config.lr,
+        # )
+
+
 
         self.loss_fn = F.cross_entropy
 

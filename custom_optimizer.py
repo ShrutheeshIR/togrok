@@ -81,3 +81,58 @@ class AdamCustom(torch.optim.Optimizer):
                 # 5. Apply the final update to the parameter
                 # new_weight = old_weight - lr * (numerator / denominator)
                 p.add_(-lr*update_step)
+
+
+
+class SGDCustom(torch.optim.Optimizer):
+    def __init__(self, params, lr=1e-3, momentum=0.9, weight_decay=0.1):
+        defaults = dict(lr=lr, momentum=momentum, weight_decay=weight_decay)
+        super(SGDCustom, self).__init__(params, defaults)
+
+    @torch.no_grad()
+    def step(self):
+        for group in self.param_groups:
+            lr = group['lr']
+            momentum = group['momentum']
+            weight_decay = group['weight_decay']
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+
+                d_p = p.grad
+                if weight_decay != 0:
+                    d_p = d_p.add(p, alpha=weight_decay)
+
+                if momentum != 0:
+                    param_state = self.state[p]
+                    if 'momentum_buffer' not in param_state:
+                        buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
+                    else:
+                        buf = param_state['momentum_buffer']
+                        buf.mul_(momentum).add_(d_p)
+                    d_p = buf
+
+                p.add_(d_p, alpha=-lr)
+
+
+class LBFGSCustom(torch.optim.Optimizer):
+    def __init__(self, params, lr=1e-3):
+        defaults = dict(lr=lr)
+        super(LBFGSCustom, self).__init__(params, defaults)
+
+    @torch.no_grad()
+    def step(self):
+        # LBFGS is a second-order optimization algorithm that approximates the inverse Hessian matrix to perform updates.
+        # Implementing it here
+
+        for group in self.param_groups:
+            lr = group['lr']
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+
+                # LBFGS logic would go here, but it's quite complex and typically relies on line search and curvature information.
+                # For simplicity, we will just perform a basic gradient step here as a placeholder.
+                p.add_(p.grad, alpha=-lr)
