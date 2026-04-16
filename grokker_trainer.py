@@ -48,8 +48,6 @@ class GrokkerTrainer:
             # ).to(self.device)
             self.model = MLPGrokModel(
                 vocab_size=config.vocab_size,
-                num_layers=config.num_layers,
-                embed_dim=config.embed_dim,
             ).to(self.device)
 
         # self.model = TransformerTorch(
@@ -63,42 +61,19 @@ class GrokkerTrainer:
 
 
 
-        # self.optimizer = torch.optim.SGD(
-        #     self.model.parameters(),
-        #     lr=config.lr,
-        #     weight_decay=config.weight_decay,
-        #     momentum=config.momentum,
-        # )
-
-        # self.optimizer = AdamCustom(
-        #     self.model.parameters(),
-        #     lr=config.lr,
-        #     beta1=config.beta1,
-        #     beta2=config.beta2,
-        #     eps=1e-8,
-        #     weight_decay=config.weight_decay,
-        # )
-
-        self.optimizer = SGDCustom(
+        self.optimizer = torch.optim.SGD(
             self.model.parameters(),
             lr=config.lr,
-            momentum=config.momentum,
             weight_decay=config.weight_decay,
+            momentum=config.momentum,
         )
 
-        # self.optimizer = LBFGSCustom(
+        # self.optimizer = torch.optim.AdamW(
         #     self.model.parameters(),
-        #     lr=config.lr * 1.0,
-        #     # momentum=config.momentum * 0.9,
-        #     # weight_decay=0.75,
+        #     lr=config.lr,
+        #     betas=(config.beta1, config.beta2),
+        #     weight_decay=config.weight_decay,
         # )
-
-        # self.optimizer = torch.optim.LBFGS(
-        #     self.model.parameters(),
-        #     lr = config.lr,
-        # )
-
-
 
         self.loss_fn = F.cross_entropy
 

@@ -86,34 +86,23 @@ class MLPGrokModel(nn.Module):
         return self.output_layer(x)[:, -1]
 
 class GrokMLP(nn.Module):
-    def __init__(self, vocab_size, embed_dim=256, dropout=0.1):
+    def __init__(self, vocab_size):
         super().__init__()
-        # self.embed = nn.Embedding(vocab_size, embed_dim)
-
-        self.embedding = nn.Embedding(vocab_size, embed_dim)
+        self.embed_a = nn.Embedding(vocab_size, vocab_size)
+        self.embed_b = nn.Embedding(vocab_size, vocab_size)
         self.layers = nn.Sequential(
-            nn.LayerNorm(embed_dim),
-            nn.Linear(embed_dim, 4 * embed_dim),
-            nn.SELU(),
-            nn.Dropout(dropout),
-            nn.Linear(4 * embed_dim, 2 * embed_dim),
-            nn.SELU(),
-            nn.Dropout(dropout),
-            # nn.Linear(8 * embed_dim, 8 * embed_dim),
-            # nn.SELU(),
-            # nn.Dropout(dropout),
-            nn.Linear(2 * embed_dim, 2 * embed_dim),
-            nn.SELU(),
-            nn.Dropout(dropout),
-            nn.Linear(2 * embed_dim, embed_dim),
-            nn.SELU(),
+            nn.Linear(vocab_size, vocab_size),
+            nn.ReLU(),
+            nn.Linear(vocab_size, vocab_size),
+            nn.ReLU()
         )
-        # self.fc_out = nn.Linear(embed_dim, vocab_size)
-        self.output_layer = nn.Linear(
-            embed_dim, vocab_size, bias=False
-        )
+        self.fc_out = nn.Linear(vocab_size, vocab_size)
+
     def forward(self, x):
-        x = self.embedding(x)
+        a = self.embed_a(x[:, 0])
+        b = self.embed_b(x[:, 1])
+        x = a + b
+        # print(x.shape)
         x = self.layers(x)
         x = self.output_layer(x)[:, -1]
         return x
