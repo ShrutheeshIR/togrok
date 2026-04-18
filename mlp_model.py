@@ -85,24 +85,26 @@ class MLPGrokModel(nn.Module):
         x = self.layer_norm(x)
         return self.output_layer(x)[:, -1]
 
+
 class GrokMLP(nn.Module):
-    def __init__(self, vocab_size):
+    def __init__(self, vocab_size, num_layers: int = 2, embed_dim: int = 256):
         super().__init__()
-        self.embed_a = nn.Embedding(vocab_size, vocab_size)
-        self.embed_b = nn.Embedding(vocab_size, vocab_size)
-        self.layers = nn.Sequential(
-            nn.Linear(vocab_size, vocab_size),
-            nn.ReLU(),
-            nn.Linear(vocab_size, vocab_size),
-            nn.ReLU()
+        self.embed_a = nn.Embedding(vocab_size, embed_dim)
+        self.embed_b = nn.Embedding(vocab_size, embed_dim)
+
+
+        # a single layer is just a linear transformation followed by a non-linearity, which is equivalent to a feedforward network with no hidden layer
+        self.layer_block = nn.Sequential(
+            nn.Linear(embed_dim, embed_dim, bias = True),
+            nn.GELU(),
         )
-        self.fc_out = nn.Linear(vocab_size, vocab_size)
+
+        self.layers = nn.Sequential(*[self.layer_block for _ in range(num_layers)])
+        self.fc_out = nn.Linear(embed_dim, vocab_size)
 
     def forward(self, x):
         a = self.embed_a(x[:, 0])
         b = self.embed_b(x[:, 1])
         x = a + b
-        # print(x.shape)
         x = self.layers(x)
-        x = self.output_layer(x)[:, -1]
         return x

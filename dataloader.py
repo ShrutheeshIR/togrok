@@ -19,7 +19,7 @@ class GrokkingModularDataset(Dataset):
         return self.inputs[idx], self.targets[idx]
 
 
-def ground_truth_data_generator(p: int, op: str):
+def ground_truth_data_generator(p: int, op: str, device: str = "cuda:0" if torch.cuda.is_available() else "cpu"):
     operations = {
         "*": lambda a, b: (a * b) % p,
         "/": lambda a, b: (a * pow(int(b), p - 2, p)) % p,
@@ -38,6 +38,61 @@ def ground_truth_data_generator(p: int, op: str):
     embed = {"*": p, "/": p, "+": p, "-": p, "=": p + 1}
     # inputs = np.array([[a, embed[op], b, embed["="]] for (a, b) in x_pairs])
     inputs = np.array([[a, b, embed["="]] for (a, b) in x_pairs])
+
+    return inputs, targets
+
+def ground_truth_data_generator_torch(
+    p: int,
+    op: str,
+    device: str = "cuda:0" if torch.cuda.is_available() else "cpu"
+):
+    device = torch.device(device)
+
+    # Define operations
+    def mul(a, b): return (a * b) % p
+    def add(a, b): return (a + b) % p
+    def sub(a, b): return (a - b) % p
+    def div(a, b): return (a * pow(b, p - 2, p)) % p  # b inverse via Fermat
+
+    operations = {
+        "*": mul,
+        "/": div,
+        "+": add,
+        "-": sub,
+    }
+
+    if op not in operations:
+        raise ValueError("Unsupported operation, choose from ['*', '/', '+', '-']")
+
+    # Create all (a, b) pairs
+    a = torch.arange(p, device=device)
+    b_start = 1 if op == "/" else 0
+    b = torch.arange(b_start, p, device=device)
+
+    # Cartesian product
+    aa = a.repeat_interleave(len(b))
+    bb = b.repeat(len(a))
+
+    x_pairs = torch.stack([aa, bb], dim=1)  # shape: (N, 2)
+    print("x_pairs shape:", x_pairs.shape, "device:", x_pairs.device)
+
+    # Compute targets
+    if op == "/":
+        # Need modular inverse in tensor form
+        inv_b = torch.tensor(
+            [pow(int(x), p - 2, p) for x in bb.tolist()],
+            device=device
+        )
+        targets = (aa * inv_b) % p
+    else:
+        targets = operations[op](aa, bb)
+
+    # Embedding tokens
+    embed = {"*": p, "/": p, "+": p, "-": p, "=": p + 1}
+
+    # Build inputs
+    eq_token = torch.full((x_pairs.shape[0], 1), embed["="], device=device)
+    inputs = torch.cat([x_pairs, eq_token], dim=1)
 
     return inputs, targets
 

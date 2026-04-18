@@ -13,14 +13,20 @@ from transformer_model import GrokModularModel
 from mlp_model import GrokMLP, MLPGrokModel
 from custom_optimizer import AdamCustom, SGDCustom, LBFGSCustom
 
+import argparse
+
 torch.set_default_dtype(torch.float64)
 class GrokkerTrainer:
-    def __init__(self, config: TrainerConfig):
+    def __init__(self, config: TrainerConfig, prefix: str = ""):
         self.config = config
         self.device = torch.device(config.device)
-        log_dir = os.path.join(config.log_dir, datetime.now().strftime("%Y%m%d-%H%M%S"))
+        print("Using device:", self.device)
+        log_dir = os.path.join(config.log_dir, prefix, datetime.now().strftime("%Y%m%d-%H%M%S"))
         self.train_writer = SummaryWriter(log_dir=os.path.join(log_dir,  "train"))
         self.val_writer = SummaryWriter(log_dir=os.path.join(log_dir, "val"))
+
+        
+        config.to_json_file(os.path.join(log_dir, "config.json"))
 
         self.train_loader, self.test_loader = build_grokking_dataloaders(
             p=config.p,
@@ -42,13 +48,12 @@ class GrokkerTrainer:
 
         # update later if we want variable layers
         elif config.model == "mlp":
-            # self.model = GrokMLP(
-            #     vocab_size=config.vocab_size,
-            #     embed_dim=config.embed_dim,
-            # ).to(self.device)
-            self.model = MLPGrokModel(
+            self.model = GrokMLP(
                 vocab_size=config.vocab_size,
             ).to(self.device)
+            # self.model = MLPGrokModel(
+            #     vocab_size=config.vocab_size,
+            # ).to(self.device)
 
         # self.model = TransformerTorch(
         #     depth=config.num_layers,
@@ -60,13 +65,20 @@ class GrokkerTrainer:
         # ).to(self.device)
 
 
-
-        self.optimizer = torch.optim.SGD(
-            self.model.parameters(),
-            lr=config.lr,
-            weight_decay=config.weight_decay,
-            momentum=config.momentum,
-        )
+        if config.optimizer == "sgd":
+            self.optimizer = torch.optim.SGD(
+                self.model.parameters(),
+                lr=config.lr,
+                weight_decay=config.weight_decay,
+                momentum=config.momentum,
+            )
+        elif config.optimizer == "adam":
+            self.optimizer = torch.optim.AdamW(
+                self.model.parameters(),
+                lr=config.lr,
+                betas=(config.beta1, config.beta2),
+                weight_decay=config.weight_decay,
+            )
 
         # self.optimizer = torch.optim.AdamW(
         #     self.model.parameters(),
@@ -188,11 +200,12 @@ class GrokkerTrainer:
                 self.val_writer.add_scalar("Accuracy", row["val_acc"], epoch)
                 self.val_writer.add_scalar("CrossEntropy", row["val_ce"], epoch)
 
-                print(
-                    f"Epoch {epoch:03d}/{self.config.epochs} | "
-                    f"train_loss={row['train_loss']:.4f} train_acc={row['train_acc']:.4f} | "
-                    f"val_loss={row['val_loss']:.4f} val_acc={row['val_acc']:.4f}"
-                )
+                if epoch % 1 == 0 or epoch == 1:
+                    print(
+                        f"Epoch {epoch:03d}/{self.config.epochs} | "
+                        f"train_loss={row['train_loss']:.4f} train_acc={row['train_acc']:.4f} | "
+                        f"val_loss={row['val_loss']:.4f} val_acc={row['val_acc']:.4f}"
+                    )
         finally:
             self.train_writer.flush()
             self.val_writer.flush()
@@ -202,13 +215,22 @@ class GrokkerTrainer:
         return history
 
 
-def train_grokker(config: TrainerConfig | None = None):
+def train_grokker(config: TrainerConfig | None = None, prefix: str = ""):
     cfg = config or TrainerConfig()
-    trainer = GrokkerTrainer(cfg)
+    trainer = GrokkerTrainer(cfg, prefix=prefix)
     history = trainer.fit()
     return trainer.model, history
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Train a GrokMLP model.")
+    parser.add_argument(
+        "--prefix",
+        type=str,
+        default="",
+        help="Prefix for the TensorBoard log directory.",
+    )
+    args = parser.parse_args()
+
     default_config = TrainerConfig()
-    train_grokker(default_config)
+    train_grokker(default_config, prefix=args.prefix)
