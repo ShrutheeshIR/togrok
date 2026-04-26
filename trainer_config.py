@@ -4,17 +4,62 @@ from typing import Literal
 import torch
 import json
 
+import argparse
 
 LossType = Literal["cross_entropy", "mse", "mse_cross_entropy"]
 
 
+def build_argparse_for_config():
+    parser = argparse.ArgumentParser(description="Train a Grokker model with specified configuration.")
+    parser.add_argument(
+        "--model",
+        type=str,
+        choices=["transformer", "mlp"],
+        default="mlp",
+        help="Model architecture to use.",
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=16384,
+        help="Batch size for training.",
+    )
+    parser.add_argument(
+        "--dropout",
+        type=float,
+        default=0.1,
+        help="Dropout rate for the model.",
+    )
+    parser.add_argument(
+        "--weight_decay",
+        type=float,
+        default=2e-2,
+        help="Weight decay (L2 regularization) coefficient.",
+    )
+    parser.add_argument(
+        "--optimizer",
+        type=str,
+        choices=["sgd", "adam"],
+        default="sgd",
+        help="Optimizer to use for training.",
+    )
+
+    parser.add_argument(
+        "--lr",
+        type=float,
+        default=1e-2,
+        help="Learning rate for the optimizer.",
+    )
+
+    return parser
+
 @dataclass
 class TrainerConfig:
-    model: Literal["transformer", "mlp"] = "mlp"
+    model: Literal["transformer", "mlp"] = "transformer"
     p: int = 97
     op: str = "/"
     train_fraction: float = 0.5
-    batch_size: int = 2048
+    batch_size: int = 16384
     seed: int = 42
     num_workers: int = 4
     dropout: float = 0.1
@@ -25,12 +70,12 @@ class TrainerConfig:
     context_size: int = 3
 
     lr: float = 1e-2
-    weight_decay: float = 2e-3
+    weight_decay: float = 2e-2
     momentum: float = 0.9
     epochs: int = 100000
     beta1: float = 0.9
     beta2: float = 0.98
-    log_dir: str = "experiments/logs"
+    log_dir: str = "experiments_scripting_adam_transformer/logs_v2"
 
     optimizer: Literal["sgd", "adam"] = "adam"
 
@@ -68,3 +113,4 @@ class TrainerConfig:
 # increase batch size as reg
 # try to fit the whole thing into mem
 # weight norm to be constant
+# try dropout

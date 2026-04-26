@@ -1,8 +1,9 @@
 from typing import Dict, List, Literal, Tuple
 import os
+import math
 from datetime import datetime
 
-from trainer_config import TrainerConfig
+from trainer_config import TrainerConfig, build_argparse_for_config
 import torch
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
@@ -50,6 +51,7 @@ class GrokkerTrainer:
         elif config.model == "mlp":
             self.model = GrokMLP(
                 vocab_size=config.vocab_size,
+                dropout=config.dropout,
             ).to(self.device)
             # self.model = MLPGrokModel(
             #     vocab_size=config.vocab_size,
@@ -63,6 +65,12 @@ class GrokkerTrainer:
         #     seq_len=config.context_size,
         #     dropout=config.dropout,
         # ).to(self.device)
+
+        # alpha = 0.8
+        # with torch.no_grad():
+        #     for param in self.model.parameters():
+        #         param.data *= alpha
+        #     self.norm = math.sqrt(sum(param.pow(2).sum().item() for param in self.model.parameters()))
 
 
         if config.optimizer == "sgd":
@@ -79,6 +87,7 @@ class GrokkerTrainer:
                 betas=(config.beta1, config.beta2),
                 weight_decay=config.weight_decay,
             )
+            print("Using AdamW optimizer with lr =", config.lr)
 
         # self.optimizer = torch.optim.AdamW(
         #     self.model.parameters(),
@@ -122,6 +131,12 @@ class GrokkerTrainer:
             }
             total_loss.backward()
             self.optimizer.step()
+
+            # with torch.no_grad():
+            #     new_norm = math.sqrt(sum(param.pow(2).sum().item() for param in self.model.parameters()))
+            #     for param in self.model.parameters():
+            #         param.data *= self.norm / new_norm
+
 
             running_total += metrics["total_loss"]
             running_ce += metrics["ce_loss"]
@@ -200,7 +215,7 @@ class GrokkerTrainer:
                 self.val_writer.add_scalar("Accuracy", row["val_acc"], epoch)
                 self.val_writer.add_scalar("CrossEntropy", row["val_ce"], epoch)
 
-                if epoch % 1 == 0 or epoch == 1:
+                if epoch % 10 == 0 or epoch == 1:
                     print(
                         f"Epoch {epoch:03d}/{self.config.epochs} | "
                         f"train_loss={row['train_loss']:.4f} train_acc={row['train_acc']:.4f} | "
@@ -223,14 +238,22 @@ def train_grokker(config: TrainerConfig | None = None, prefix: str = ""):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train a GrokMLP model.")
+    # parser = argparse.ArgumentParser(description="Train a GrokMLP model.")
+
+    parser = build_argparse_for_config()
     parser.add_argument(
         "--prefix",
         type=str,
         default="",
         help="Prefix for the TensorBoard log directory.",
     )
-    args = parser.parse_args()
 
-    default_config = TrainerConfig()
+    args = parser.parse_args()
+    default_config = TrainerConfig(
+        batch_size=args.batch_size,
+        dropout=args.dropout,
+        weight_decay=args.weight_decay,
+        lr=args.lr,
+        optimizer=args.optimizer,
+    )
     train_grokker(default_config, prefix=args.prefix)
