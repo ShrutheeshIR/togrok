@@ -77,7 +77,7 @@ class TrainerConfig:
     beta2: float = 0.98
     log_dir: str = "experiments_scripting_adam_transformer/logs_v2"
 
-    optimizer: Literal["sgd", "adam"] = "adam"
+    optimizer: Literal["sgd", "adam", "btls"] = "btls"
 
     loss_type: LossType = "cross_entropy"
     ce_weight: float = 1.0

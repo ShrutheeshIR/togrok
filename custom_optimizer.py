@@ -136,3 +136,56 @@ class LBFGSCustom(torch.optim.Optimizer):
                 # LBFGS logic would go here, but it's quite complex and typically relies on line search and curvature information.
                 # For simplicity, we will just perform a basic gradient step here as a placeholder.
                 p.add_(p.grad, alpha=-lr)
+
+class BTLSCustom(torch.optim.Optimizer):
+    def __init__(self, params, model, loss_fn, gamma=0.5, c1=0.1, weight_decay = 0.001):
+        defaults = dict(model=model, loss_fn=loss_fn, gamma=gamma, c1=c1, weight_decay=weight_decay)
+        super(BTLSCustom, self).__init__(params, defaults)
+
+    @torch.no_grad()
+    def step(self, x, y):
+        # Implementation of back tracking linesearch in the gradient direction. reduces alpha parameter until wolfe conditions are met
+        # save the old params
+        alpha = 1
+        while True:
+            for group in self.param_groups:
+                old_params = []
+                model = group['model']
+                loss_fn = group['loss_fn']
+                c1 = group['c1']
+                weight_decay = group['weight_decay']
+                L0 = loss_fn(model(x), y)
+                Lg = 0
+                for p in group["params"]:
+                    if p.grad is None:
+                        continue
+                    Lg += -torch.flatten(p.grad) @ torch.flatten(p.grad).T / (torch.linalg.norm(p.grad) ** 2)
+                # compute L(alpha)
+                La = L0 + c1 * alpha * Lg
+                # print(f"La: {La}")
+
+                # update params
+                for p in group['params']:
+                    if p.grad is None:
+                        continue
+                    d_p = p.grad
+                    if weight_decay != 0:
+                        d_p = d_p.add(p, alpha=weight_decay)
+                    p.add_(d_p, alpha = -alpha)
+                    old_params.append(p)
+                
+                # recompute loss after param update
+                loss_a = loss_fn(model(x), y)
+                # print(f"loss_a: {loss_a}")
+
+                # if wolfe is good, return
+                if loss_a < La:
+                    # print(alpha)
+                    return
+                
+                # otherwise, reset params and try again with new alpha
+                for i in range(len(group["params"])):
+                    if group['params'][i] is None:
+                        continue
+                    group['params'][i] = old_params[i]
+            alpha *= 0.5

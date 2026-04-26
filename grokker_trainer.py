@@ -12,7 +12,7 @@ from dataloader import build_grokking_dataloaders
 from grokker_og import TransformerTorch
 from transformer_model import GrokModularModel
 from mlp_model import GrokMLP, MLPGrokModel
-from custom_optimizer import AdamCustom, SGDCustom, LBFGSCustom
+from custom_optimizer import AdamCustom, SGDCustom, LBFGSCustom, BTLSCustom
 
 import argparse
 
@@ -37,6 +37,7 @@ class GrokkerTrainer:
             seed=config.seed,
         )
         self.model = None
+        self.loss_fn = F.cross_entropy
 
         if config.model == "transformer":
             self.model = GrokModularModel(
@@ -46,6 +47,7 @@ class GrokkerTrainer:
                 num_heads=config.num_heads,
                 context_size=config.context_size,
             ).to(self.device)
+            print("Created transformer model with parameters:", sum(p.numel() for p in self.model.parameters()))
 
         # update later if we want variable layers
         elif config.model == "mlp":
@@ -87,16 +89,14 @@ class GrokkerTrainer:
                 betas=(config.beta1, config.beta2),
                 weight_decay=config.weight_decay,
             )
-            print("Using AdamW optimizer with lr =", config.lr)
-
-        # self.optimizer = torch.optim.AdamW(
-        #     self.model.parameters(),
-        #     lr=config.lr,
-        #     betas=(config.beta1, config.beta2),
-        #     weight_decay=config.weight_decay,
-        # )
-
-        self.loss_fn = F.cross_entropy
+        elif config.optimizer == "btls":
+            self.optimizer = BTLSCustom(
+                self.model.parameters(),
+                self.model,
+                self.loss_fn,
+                0.5,
+                0.0001
+            )
 
 
     def train_epoch(self) -> Dict[str, float]:
@@ -130,7 +130,7 @@ class GrokkerTrainer:
                 "ce_loss": float(total_loss.detach().item()),
             }
             total_loss.backward()
-            self.optimizer.step()
+            self.optimizer.step(x, y)
 
             # with torch.no_grad():
             #     new_norm = math.sqrt(sum(param.pow(2).sum().item() for param in self.model.parameters()))
