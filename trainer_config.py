@@ -39,7 +39,7 @@ def build_argparse_for_config():
     parser.add_argument(
         "--optimizer",
         type=str,
-        choices=["sgd", "adam"],
+        choices=["sgd", "adam", "btls"],
         default="sgd",
         help="Optimizer to use for training.",
     )

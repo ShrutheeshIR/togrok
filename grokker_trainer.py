@@ -12,7 +12,7 @@ from dataloader import build_grokking_dataloaders
 from grokker_og import TransformerTorch
 from transformer_model import GrokModularModel
 from mlp_model import GrokMLP, MLPGrokModel
-from custom_optimizer import AdamCustom, SGDCustom, LBFGSCustom, BTLSCustom
+from custom_optimizer import AdamCustom, SGDCustom, LBFGSCustom, BTLSCustom, SecondOrderAdamCustom
 
 import argparse
 
@@ -68,11 +68,11 @@ class GrokkerTrainer:
         #     dropout=config.dropout,
         # ).to(self.device)
 
-        # alpha = 0.8
-        # with torch.no_grad():
-        #     for param in self.model.parameters():
-        #         param.data *= alpha
-        #     self.norm = math.sqrt(sum(param.pow(2).sum().item() for param in self.model.parameters()))
+        alpha = 0.5
+        with torch.no_grad():
+            for param in self.model.parameters():
+                param.data *= alpha
+            self.norm = math.sqrt(sum(param.pow(2).sum().item() for param in self.model.parameters()))
 
 
         if config.optimizer == "sgd":
@@ -83,7 +83,7 @@ class GrokkerTrainer:
                 momentum=config.momentum,
             )
         elif config.optimizer == "adam":
-            self.optimizer = torch.optim.AdamW(
+            self.optimizer = AdamCustom(
                 self.model.parameters(),
                 lr=config.lr,
                 betas=(config.beta1, config.beta2),
@@ -130,7 +130,7 @@ class GrokkerTrainer:
                 "ce_loss": float(total_loss.detach().item()),
             }
             total_loss.backward()
-            self.optimizer.step(x, y)
+            self.optimizer.step()
 
             # with torch.no_grad():
             #     new_norm = math.sqrt(sum(param.pow(2).sum().item() for param in self.model.parameters()))
@@ -215,7 +215,7 @@ class GrokkerTrainer:
                 self.val_writer.add_scalar("Accuracy", row["val_acc"], epoch)
                 self.val_writer.add_scalar("CrossEntropy", row["val_ce"], epoch)
 
-                if epoch % 10 == 0 or epoch == 1:
+                if epoch % 1 == 0 or epoch == 1:
                     print(
                         f"Epoch {epoch:03d}/{self.config.epochs} | "
                         f"train_loss={row['train_loss']:.4f} train_acc={row['train_acc']:.4f} | "
