@@ -83,7 +83,7 @@ class GrokkerTrainer:
                 momentum=config.momentum,
             )
         elif config.optimizer == "adam":
-            self.optimizer = AdamCustom(
+            self.optimizer = SecondOrderAdamCustom(
                 self.model.parameters(),
                 lr=config.lr,
                 betas=(config.beta1, config.beta2),
@@ -132,10 +132,10 @@ class GrokkerTrainer:
             total_loss.backward()
             self.optimizer.step()
 
-            # with torch.no_grad():
-            #     new_norm = math.sqrt(sum(param.pow(2).sum().item() for param in self.model.parameters()))
-            #     for param in self.model.parameters():
-            #         param.data *= self.norm / new_norm
+            with torch.no_grad():
+                new_norm = math.sqrt(sum(param.pow(2).sum().item() for param in self.model.parameters()))
+                for param in self.model.parameters():
+                    param.data *= self.norm / new_norm
 
 
             running_total += metrics["total_loss"]

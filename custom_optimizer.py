@@ -391,15 +391,16 @@ class SecondOrderAdamCustom(torch.optim.Optimizer):
                         value = si.reshape(-1)* TE + alpha*yi.reshape(-1)*BE
                         value = alpha*(exp_avg.reshape(-1)) + value
                         lbfgs_step = value.view_as(p)
-
+                        p.add_(-lr*lbfgs_step)
+                    # else:
+                    #     p.add_(-lr*update_step)
 
 
                 
-
-                # 5. Apply the final update to the parameter
-                # new_weight = old_weight - lr * (numerator / denominator)
+                # else:
+                    # 5. Apply the final update to the parameter
+                    # new_weight = old_weight - lr * (numerator / denominator)
                 p.add_(-lr*update_step)
-                p.add_(-lr*lbfgs_step)
 
                 # store current grad and param for next step
                 state['prev_grad'] = exp_avg.clone()
