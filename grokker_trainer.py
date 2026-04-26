@@ -122,6 +122,7 @@ class GrokkerTrainer:
             }
             total_loss.backward()
             self.optimizer.step(x, y)
+            # self.optimizer.step()
 
             running_total += metrics["total_loss"]
             running_ce += metrics["ce_loss"]
