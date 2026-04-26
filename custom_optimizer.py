@@ -138,8 +138,8 @@ class LBFGSCustom(torch.optim.Optimizer):
                 p.add_(p.grad, alpha=-lr)
 
 class BTLSCustom(torch.optim.Optimizer):
-    def __init__(self, params, model, loss_fn, gamma=0.5, c1=0.1):
-        defaults = dict(model=model, loss_fn=loss_fn, gamma=gamma, c1=c1)
+    def __init__(self, params, model, loss_fn, gamma=0.5, c1=0.1, weight_decay = 0.001):
+        defaults = dict(model=model, loss_fn=loss_fn, gamma=gamma, c1=c1, weight_decay=weight_decay)
         super(BTLSCustom, self).__init__(params, defaults)
 
     @torch.no_grad()
@@ -153,12 +153,13 @@ class BTLSCustom(torch.optim.Optimizer):
                 model = group['model']
                 loss_fn = group['loss_fn']
                 c1 = group['c1']
+                weight_decay = group['weight_decay']
                 L0 = loss_fn(model(x), y)
                 Lg = 0
                 for p in group["params"]:
                     if p.grad is None:
                         continue
-                    Lg += -torch.flatten(p.grad) @ torch.flatten(p.grad).T
+                    Lg += -torch.flatten(p.grad) @ torch.flatten(p.grad).T / (torch.linalg.norm(p.grad) ** 2)
                 # compute L(alpha)
                 La = L0 + c1 * alpha * Lg
                 # print(f"La: {La}")
@@ -167,7 +168,10 @@ class BTLSCustom(torch.optim.Optimizer):
                 for p in group['params']:
                     if p.grad is None:
                         continue
-                    p.add_(p.grad, alpha = -alpha)
+                    d_p = p.grad
+                    if weight_decay != 0:
+                        d_p = d_p.add(p, alpha=weight_decay)
+                    p.add_(d_p, alpha = -alpha)
                     old_params.append(p)
                 
                 # recompute loss after param update
