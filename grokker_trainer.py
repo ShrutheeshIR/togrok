@@ -86,8 +86,7 @@ class GrokkerTrainer:
                 self.model,
                 self.loss_fn,
                 0.5,
-                0.0001,
-                0.9
+                0.0001
             )
 
 
@@ -122,7 +121,7 @@ class GrokkerTrainer:
                 "ce_loss": float(total_loss.detach().item()),
             }
             total_loss.backward()
-            self.optimizer.step()
+            self.optimizer.step(x, y)
 
             running_total += metrics["total_loss"]
             running_ce += metrics["ce_loss"]

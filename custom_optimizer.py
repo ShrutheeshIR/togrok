@@ -138,8 +138,8 @@ class LBFGSCustom(torch.optim.Optimizer):
                 p.add_(p.grad, alpha=-lr)
 
 class BTLSCustom(torch.optim.Optimizer):
-    def __init__(self, params, model, loss_fn, gamma=0.5, c1=0.0001, c2=0.9):
-        defaults = dict(c1=c1, c2=c2)
+    def __init__(self, params, model, loss_fn, gamma=0.5, c1=0.1):
+        defaults = dict(model=model, loss_fn=loss_fn, gamma=gamma, c1=c1)
         super(BTLSCustom, self).__init__(params, defaults)
 
     @torch.no_grad()
@@ -147,43 +147,41 @@ class BTLSCustom(torch.optim.Optimizer):
         # Implementation of back tracking linesearch in the gradient direction. reduces alpha parameter until wolfe conditions are met
         # save the old params
         alpha = 1
-        L0 = self.loss_fn(self.model(x), y)
-        old_params = []
-        for group in self.param_groups:
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-                old_params.append(p)
-
         while True:
-            Lg = 0
-            # compute L'(0)
             for group in self.param_groups:
+                old_params = []
+                model = group['model']
+                loss_fn = group['loss_fn']
+                c1 = group['c1']
+                L0 = loss_fn(model(x), y)
+                Lg = 0
                 for p in group["params"]:
                     if p.grad is None:
                         continue
-                    Lg += -p.grad * p.grad
+                    Lg += -torch.flatten(p.grad) @ torch.flatten(p.grad).T
+                # compute L(alpha)
+                La = L0 + c1 * alpha * Lg
+                # print(f"La: {La}")
+
+                # update params
+                for p in group['params']:
+                    if p.grad is None:
+                        continue
+                    p.add_(p.grad, alpha = -alpha)
+                    old_params.append(p)
                 
-            # compute L(alpha)
-            La = L0 + self.c1 * alpha * Lg
+                # recompute loss after param update
+                loss_a = loss_fn(model(x), y)
+                # print(f"loss_a: {loss_a}")
 
-            # update params
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-                p.add_(p.grad, alpha = -alpha * self.c1)
-            
-            # recompute loss after param update
-            loss_a = self.loss_fn(self.model(x), y)
-
-            # if wolfe is good, return
-            if loss_a < La:
-                return
-            
-            # otherwise, reset params and try again with new alpha
-            for group in self.param_groups:
+                # if wolfe is good, return
+                if loss_a < La:
+                    # print(alpha)
+                    return
+                
+                # otherwise, reset params and try again with new alpha
                 for i in range(len(group["params"])):
                     if group['params'][i] is None:
                         continue
                     group['params'][i] = old_params[i]
-            alpha *= self.gamma
+            alpha *= 0.5
