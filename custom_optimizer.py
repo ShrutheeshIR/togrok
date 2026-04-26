@@ -138,16 +138,16 @@ class LBFGSCustom(torch.optim.Optimizer):
                 p.add_(p.grad, alpha=-lr)
 
 class BTLSCustom(torch.optim.Optimizer):
-    def __init__(self, params, lr=1, c1=0.0001, c2=0.9):
-        defaults = dict(lr=lr, c1=c1, c2=c2)
+    def __init__(self, params, model, loss_fn, gamma=0.5, c1=0.0001, c2=0.9):
+        defaults = dict(c1=c1, c2=c2)
         super(BTLSCustom, self).__init__(params, defaults)
 
     @torch.no_grad()
-    def step(self, model, loss_fn, x, y):
+    def step(self, x, y):
         # Implementation of back tracking linesearch in the gradient direction. reduces alpha parameter until wolfe conditions are met
         # save the old params
         alpha = 1
-        L0 = loss_fn(y, model(x))
+        L0 = self.loss_fn(self.model(x), y)
         old_params = []
         for group in self.param_groups:
             for p in group['params']:
@@ -174,7 +174,7 @@ class BTLSCustom(torch.optim.Optimizer):
                 p.add_(p.grad, alpha = -alpha * self.c1)
             
             # recompute loss after param update
-            loss_a = loss_fn(y, model(x))
+            loss_a = self.loss_fn(self.model(x), y)
 
             # if wolfe is good, return
             if loss_a < La:
@@ -186,4 +186,4 @@ class BTLSCustom(torch.optim.Optimizer):
                     if group['params'][i] is None:
                         continue
                     group['params'][i] = old_params[i]
-            alpha *= 0.5
+            alpha *= self.gamma

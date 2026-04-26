@@ -11,7 +11,7 @@ from dataloader import build_grokking_dataloaders
 from grokker_og import TransformerTorch
 from transformer_model import GrokModularModel
 from mlp_model import GrokMLP, MLPGrokModel
-from custom_optimizer import AdamCustom, SGDCustom, LBFGSCustom
+from custom_optimizer import AdamCustom, SGDCustom, LBFGSCustom, BTLSCustom
 
 import argparse
 
@@ -36,6 +36,7 @@ class GrokkerTrainer:
             seed=config.seed,
         )
         self.model = None
+        self.loss_fn = F.cross_entropy
 
         if config.model == "transformer":
             self.model = GrokModularModel(
@@ -79,15 +80,15 @@ class GrokkerTrainer:
                 betas=(config.beta1, config.beta2),
                 weight_decay=config.weight_decay,
             )
-
-        # self.optimizer = torch.optim.AdamW(
-        #     self.model.parameters(),
-        #     lr=config.lr,
-        #     betas=(config.beta1, config.beta2),
-        #     weight_decay=config.weight_decay,
-        # )
-
-        self.loss_fn = F.cross_entropy
+        elif config.optimizer == "btls":
+            self.optimizer = BTLSCustom(
+                self.model.parameters(),
+                self.model,
+                self.loss_fn,
+                0.5,
+                0.0001,
+                0.9
+            )
 
 
     def train_epoch(self) -> Dict[str, float]:
