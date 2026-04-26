@@ -136,3 +136,54 @@ class LBFGSCustom(torch.optim.Optimizer):
                 # LBFGS logic would go here, but it's quite complex and typically relies on line search and curvature information.
                 # For simplicity, we will just perform a basic gradient step here as a placeholder.
                 p.add_(p.grad, alpha=-lr)
+
+class BTLSCustom(torch.optim.Optimizer):
+    def __init__(self, params, lr=1, c1=0.0001, c2=0.9):
+        defaults = dict(lr=lr, c1=c1, c2=c2)
+        super(BTLSCustom, self).__init__(params, defaults)
+
+    @torch.no_grad()
+    def step(self, model, loss_fn, x, y):
+        # Implementation of back tracking linesearch in the gradient direction. reduces alpha parameter until wolfe conditions are met
+        # save the old params
+        alpha = 1
+        L0 = loss_fn(y, model(x))
+        old_params = []
+        for group in self.param_groups:
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                old_params.append(p)
+
+        while True:
+            Lg = 0
+            # compute L'(0)
+            for group in self.param_groups:
+                for p in group["params"]:
+                    if p.grad is None:
+                        continue
+                    Lg += -p.grad * p.grad
+                
+            # compute L(alpha)
+            La = L0 + self.c1 * alpha * Lg
+
+            # update params
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                p.add_(p.grad, alpha = -alpha * self.c1)
+            
+            # recompute loss after param update
+            loss_a = loss_fn(y, model(x))
+
+            # if wolfe is good, return
+            if loss_a < La:
+                return
+            
+            # otherwise, reset params and try again with new alpha
+            for group in self.param_groups:
+                for i in range(len(group["params"])):
+                    if group['params'][i] is None:
+                        continue
+                    group['params'][i] = old_params[i]
+            alpha *= 0.5
