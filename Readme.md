@@ -21,3 +21,39 @@ In a similar sense, can we grok modular arithmatic? I do not mean to drink it, b
 
 Run [grokker_trainer.py](grokker_trainer.py)
 It will also launch tensorboard, you can use [plot_from_tf_events](plot_from_tf_events.py) to get plots of acc and loss
+
+
+
+# Analysis
+
+First, to read the tf files, call the `plotter` that will populate the loss curves and also write some dataframes useful for future comparison.
+To call it run
+
+```
+python3 plot_from_tf_events.py --output_dir <out_dir> tensorboard_dir --suffix <suffix>
+```
+It is easier to set `out_dir` and the logdir to be the same. An example is shown below.
+
+Example
+```
+python3 plot_from_tf_events.py --output_dir experiments_final_transformer_results/bs2048_do0p0_wd5e-2_lr1e-3_optadam_wnr-1p0/20260504-100959 experiments_final_transformer_results/bs2048_do0p0_wd5e-2_lr1e-3_optadam_wnr-1p0/20260504-100959
+```
+
+This will generate `accuracy_.svg` and `loss_.svg` curves that can be loaded directly. In addition, it generates `metrics_summary.json` that denotes T_train, T_test, and their times. These denote the time/epoch to hit 99% accuracy. Finally a `comparison_summary.csv` file is generated that notes the training and test accuracy across steps and a matched timestamp. (for each test row, we get the train row closest to that time, it seems to work out somehow)
+
+## Comparison across experiments
+
+Then to compare across experiments, simply load the comparison_summary.csv files and plot a comparison plotter. 
+To run it
+
+```
+python3 plot_comparison.py --comparison_csvs csv1 csv2 csv3 ...  --output_dir <outdir>  --labels label1 label2 label3 ...
+```
+
+Example
+
+```
+python3 plot_comparison.py --comparison_csvs experiments_adam_second_order/bs128_do0p2_wd5e-2_lr1e-3_optadam_wnr-1p0/20260503-042735/comparison_summary.csv experiments_adam_second_order/bs128_do0p2_wd5e-2_lr1e-3_optadam_wnr0p75/20260503-045749/comparison_summary.csv experiments_adam_second_order/bs128_do0p2_wd5e-2_lr1e-3_optsecond_order_adam_wnr0p75/20260503-054528/comparison_summary.csv  --output_dir final_figs  --labels Adam_no_wn Adam_wn Qadam_wn
+```
+
+This will produce `comparison_acc_step.svg` and `comparison_acc_time.svg`.
