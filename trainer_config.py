@@ -39,7 +39,7 @@ def build_argparse_for_config():
     parser.add_argument(
         "--optimizer",
         type=str,
-        choices=["sgd", "adam", "btls"],
+        choices=["sgd", "adam", "btls", "second_order_adam", "second_order_adam_wo_gd"],
         default="sgd",
         help="Optimizer to use for training.",
     )
@@ -49,6 +49,26 @@ def build_argparse_for_config():
         type=float,
         default=1e-2,
         help="Learning rate for the optimizer.",
+    )
+
+    parser.add_argument(
+        "--do_weight_norm",
+        action="store_true",
+        help="Whether to apply weight normalization to the model. Default is False.",
+    )
+
+    parser.add_argument(
+        "--weight_norm_ratio",
+        type=float,
+        default=1.0,
+        help="Value to normalize weights to. Default is 1.0. Ignored if --do_weight_norm is not set.",
+    )
+
+    parser.add_argument(
+        "--log_dir",
+        type=str,
+        default="experiments_all_adam",
+        help="Base directory for TensorBoard logs.",
     )
 
     return parser
@@ -64,6 +84,9 @@ class TrainerConfig:
     num_workers: int = 4
     dropout: float = 0.1
 
+    do_weight_norm: bool = False
+    weight_norm_ratio: float = 1.0
+
     num_layers: int = 2
     embed_dim: int = 256
     num_heads: int = 2
@@ -72,12 +95,12 @@ class TrainerConfig:
     lr: float = 1e-2
     weight_decay: float = 2e-2
     momentum: float = 0.9
-    epochs: int = 100000
+    epochs: int = 4000
     beta1: float = 0.9
     beta2: float = 0.98
     log_dir: str = "experiments_scripting_adam_transformer/logs_v2"
 
-    optimizer: Literal["sgd", "adam", "btls"] = "btls"
+    optimizer: Literal["sgd", "adam", "btls", "second_order_adam", "second_order_adam_wo_gd"] = "btls"
 
     loss_type: LossType = "cross_entropy"
     ce_weight: float = 1.0

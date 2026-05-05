@@ -295,6 +295,7 @@ class SecondOrderAdamCustom(torch.optim.Optimizer):
         betas = (0.9, 0.98),
         eps = 1e-8,
         weight_decay = 0.1,
+        apply_gd_always = True,
     ):
         # invalid input errors
         if lr<= 0.0:
@@ -304,6 +305,7 @@ class SecondOrderAdamCustom(torch.optim.Optimizer):
         
         # define a dictionary for hyperparameters
         defaults = dict(lr=lr, beta1=betas[0], beta2=betas[1], eps=eps, weight_decay=weight_decay)
+        self.apply_gd_always = apply_gd_always
         super(SecondOrderAdamCustom, self).__init__(params, defaults)
 
     @torch.no_grad()
@@ -368,6 +370,8 @@ class SecondOrderAdamCustom(torch.optim.Optimizer):
 
                 # now calculate the second order correction using the previous gradient and parameter values
                 lbfgs_step = torch.zeros_like(p)
+
+                doing_lbfgs = False
                 if t > 1:
                     prev_grad = state['prev_grad']
                     prev_param = state['prev_param']
@@ -392,6 +396,7 @@ class SecondOrderAdamCustom(torch.optim.Optimizer):
                         value = alpha*(exp_avg.reshape(-1)) + value
                         lbfgs_step = value.view_as(p)
                         p.add_(-lr*lbfgs_step)
+                        doing_lbfgs = True
                     # else:
                     #     p.add_(-lr*update_step)
 
@@ -400,7 +405,9 @@ class SecondOrderAdamCustom(torch.optim.Optimizer):
                 # else:
                     # 5. Apply the final update to the parameter
                     # new_weight = old_weight - lr * (numerator / denominator)
-                p.add_(-lr*update_step)
+
+                if not doing_lbfgs or self.apply_gd_always:
+                    p.add_(-lr*update_step)
 
                 # store current grad and param for next step
                 state['prev_grad'] = exp_avg.clone()

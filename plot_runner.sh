@@ -1,7 +1,7 @@
 #!/bin/bash
 
 plot_all_experiments() {
-    local base_dir="experiments_scripting_adam_transformer/logs_v2"
+    local base_dir="experiments_transformer_final_results_batch_size_comparison"
     
     # Iterate through all config subdirectories
     for config_dir in "$base_dir"/*/ ; do

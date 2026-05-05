@@ -51,7 +51,7 @@ class GrokkerTrainer:
 
         # update later if we want variable layers
         elif config.model == "mlp":
-            self.model = GrokMLP(
+            self.model = MLPGrokModel(
                 vocab_size=config.vocab_size,
                 dropout=config.dropout,
             ).to(self.device)
@@ -68,11 +68,11 @@ class GrokkerTrainer:
         #     dropout=config.dropout,
         # ).to(self.device)
 
-        alpha = 0.5
-        with torch.no_grad():
-            for param in self.model.parameters():
-                param.data *= alpha
-            self.norm = math.sqrt(sum(param.pow(2).sum().item() for param in self.model.parameters()))
+        if config.do_weight_norm:
+            with torch.no_grad():
+                for param in self.model.parameters():
+                    param.data *= config.weight_norm_ratio
+                self.norm = math.sqrt(sum(param.pow(2).sum().item() for param in self.model.parameters()))
 
 
         if config.optimizer == "sgd":
@@ -83,12 +83,29 @@ class GrokkerTrainer:
                 momentum=config.momentum,
             )
         elif config.optimizer == "adam":
+            self.optimizer = AdamCustom(
+                self.model.parameters(),
+                lr=config.lr,
+                betas=(config.beta1, config.beta2),
+                weight_decay=config.weight_decay,
+            )
+
+        elif config.optimizer == "second_order_adam":
             self.optimizer = SecondOrderAdamCustom(
                 self.model.parameters(),
                 lr=config.lr,
                 betas=(config.beta1, config.beta2),
                 weight_decay=config.weight_decay,
             )
+        elif config.optimizer == "second_order_adam_wo_gd":
+            self.optimizer = SecondOrderAdamCustom(
+                self.model.parameters(),
+                lr=config.lr,
+                betas=(config.beta1, config.beta2),
+                weight_decay=config.weight_decay,
+                apply_gd_always=False,
+            )
+
         elif config.optimizer == "btls":
             self.optimizer = BTLSCustom(
                 self.model.parameters(),
@@ -132,10 +149,11 @@ class GrokkerTrainer:
             total_loss.backward()
             self.optimizer.step()
 
-            with torch.no_grad():
-                new_norm = math.sqrt(sum(param.pow(2).sum().item() for param in self.model.parameters()))
-                for param in self.model.parameters():
-                    param.data *= self.norm / new_norm
+            if self.config.do_weight_norm:
+                with torch.no_grad():
+                    new_norm = math.sqrt(sum(param.pow(2).sum().item() for param in self.model.parameters()))
+                    for param in self.model.parameters():
+                        param.data *= self.norm / new_norm
 
 
             running_total += metrics["total_loss"]
@@ -250,10 +268,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     default_config = TrainerConfig(
+        model=args.model,
         batch_size=args.batch_size,
         dropout=args.dropout,
         weight_decay=args.weight_decay,
         lr=args.lr,
         optimizer=args.optimizer,
+        log_dir=args.log_dir,
+        do_weight_norm=args.do_weight_norm,
+        weight_norm_ratio=args.weight_norm_ratio,
     )
     train_grokker(default_config, prefix=args.prefix)
