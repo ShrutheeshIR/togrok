@@ -1,8 +1,9 @@
 from typing import Dict, List, Literal, Tuple
 import os
+import math
 from datetime import datetime
 
-from trainer_config import TrainerConfig
+from trainer_config import TrainerConfig, build_argparse_for_config
 import torch
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
@@ -11,7 +12,7 @@ from dataloader import build_grokking_dataloaders
 from grokker_og import TransformerTorch
 from transformer_model import GrokModularModel
 from mlp_model import GrokMLP, MLPGrokModel
-from custom_optimizer import AdamCustom, SGDCustom, LBFGSCustom, BTLSCustom
+from custom_optimizer import AdamCustom, SGDCustom, LBFGSCustom, BTLSCustom, SecondOrderAdamCustom
 
 import argparse
 
@@ -46,11 +47,13 @@ class GrokkerTrainer:
                 num_heads=config.num_heads,
                 context_size=config.context_size,
             ).to(self.device)
+            print("Created transformer model with parameters:", sum(p.numel() for p in self.model.parameters()))
 
         # update later if we want variable layers
         elif config.model == "mlp":
-            self.model = GrokMLP(
+            self.model = MLPGrokModel(
                 vocab_size=config.vocab_size,
+                # dropout=config.dropout,
             ).to(self.device)
             # self.model = MLPGrokModel(
             #     vocab_size=config.vocab_size,
@@ -65,6 +68,12 @@ class GrokkerTrainer:
         #     dropout=config.dropout,
         # ).to(self.device)
 
+        if config.do_weight_norm:
+            with torch.no_grad():
+                for param in self.model.parameters():
+                    param.data *= config.weight_norm_ratio
+                self.norm = math.sqrt(sum(param.pow(2).sum().item() for param in self.model.parameters()))
+
 
         if config.optimizer == "sgd":
             self.optimizer = torch.optim.SGD(
@@ -74,19 +83,37 @@ class GrokkerTrainer:
                 momentum=config.momentum,
             )
         elif config.optimizer == "adam":
-            self.optimizer = torch.optim.AdamW(
+            self.optimizer = AdamCustom(
                 self.model.parameters(),
                 lr=config.lr,
                 betas=(config.beta1, config.beta2),
                 weight_decay=config.weight_decay,
             )
+
+        elif config.optimizer == "second_order_adam":
+            self.optimizer = SecondOrderAdamCustom(
+                self.model.parameters(),
+                lr=config.lr,
+                betas=(config.beta1, config.beta2),
+                weight_decay=config.weight_decay,
+            )
+        elif config.optimizer == "second_order_adam_wo_gd":
+            self.optimizer = SecondOrderAdamCustom(
+                self.model.parameters(),
+                lr=config.lr,
+                betas=(config.beta1, config.beta2),
+                weight_decay=config.weight_decay,
+                apply_gd_always=False,
+            )
+
         elif config.optimizer == "btls":
             self.optimizer = BTLSCustom(
                 self.model.parameters(),
                 self.model,
                 self.loss_fn,
                 0.5,
-                0.0001
+                0.01,
+                0.01
             )
 
 
@@ -121,8 +148,14 @@ class GrokkerTrainer:
                 "ce_loss": float(total_loss.detach().item()),
             }
             total_loss.backward()
-            # self.optimizer.step(x, y)
-            self.optimizer.step()
+            self.optimizer.step(x, y)
+
+            if self.config.do_weight_norm:
+                with torch.no_grad():
+                    new_norm = math.sqrt(sum(param.pow(2).sum().item() for param in self.model.parameters()))
+                    for param in self.model.parameters():
+                        param.data *= self.norm / new_norm
+
 
             running_total += metrics["total_loss"]
             running_ce += metrics["ce_loss"]
@@ -224,14 +257,26 @@ def train_grokker(config: TrainerConfig | None = None, prefix: str = ""):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train a GrokMLP model.")
+    # parser = argparse.ArgumentParser(description="Train a GrokMLP model.")
+
+    parser = build_argparse_for_config()
     parser.add_argument(
         "--prefix",
         type=str,
         default="",
         help="Prefix for the TensorBoard log directory.",
     )
-    args = parser.parse_args()
 
-    default_config = TrainerConfig()
+    args = parser.parse_args()
+    default_config = TrainerConfig(
+        model=args.model,
+        batch_size=args.batch_size,
+        dropout=args.dropout,
+        weight_decay=args.weight_decay,
+        lr=args.lr,
+        optimizer=args.optimizer,
+        log_dir=args.log_dir,
+        do_weight_norm=args.do_weight_norm,
+        weight_norm_ratio=args.weight_norm_ratio,
+    )
     train_grokker(default_config, prefix=args.prefix)
