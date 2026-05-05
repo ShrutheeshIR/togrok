@@ -32,7 +32,7 @@ class TrainerConfig:
     beta2: float = 0.98
     log_dir: str = "experiments/logs"
 
-    optimizer: Literal["sgd", "adam", "btls"] = "btls"
+    optimizer: Literal["sgd", "adam", "btls"] = "sgd"
 
     loss_type: LossType = "cross_entropy"
     ce_weight: float = 1.0
